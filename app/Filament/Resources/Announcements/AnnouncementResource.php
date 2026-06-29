@@ -5,31 +5,93 @@ namespace App\Filament\Resources\Announcements;
 use App\Filament\Resources\Announcements\Pages\CreateAnnouncement;
 use App\Filament\Resources\Announcements\Pages\EditAnnouncement;
 use App\Filament\Resources\Announcements\Pages\ListAnnouncements;
-use App\Filament\Resources\Announcements\Schemas\AnnouncementForm;
-use App\Filament\Resources\Announcements\Tables\AnnouncementsTable;
 use App\Models\Announcement;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Filament\Forms;
+use Filament\Tables;
+use Illuminate\Support\Str;
+use Filament\Schemas\Components\Utilities\Set;
 
 class AnnouncementResource extends Resource
 {
     protected static ?string $model = Announcement::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
-
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-megaphone';
+    protected static ?string $navigationLabel = 'Pengumuman';
+    protected static ?string $modelLabel = 'Pengumuman';
+    protected static ?string $pluralModelLabel = 'Pengumuman';
+    protected static string|\UnitEnum|null $navigationGroup = 'Berita & Kegiatan';
+    protected static ?int $navigationSort = 1;
     protected static ?string $recordTitleAttribute = 'Announcement';
 
     public static function form(Schema $schema): Schema
     {
-        return AnnouncementForm::configure($schema);
+        return $schema
+            ->components([
+                Forms\Components\TextInput::make('title')
+                    ->label('Judul')
+                    ->required()
+                    ->maxLength(255)
+                    ->live(onBlur: true)
+                    ->afterStateUpdated(fn (Set $set, ?string $state) => $set('slug', Str::slug($state ?? ''))),
+                    
+                Forms\Components\Hidden::make('slug')
+                    ->required()
+                    ->unique(ignoreRecord: true),
+                    
+                Forms\Components\Hidden::make('users_id'),
+                    
+                Forms\Components\RichEditor::make('content')
+                    ->label('Konten Pengumuman')
+                    ->required()
+                    ->columnSpanFull(),
+            ])
+            ->columns(2);
     }
 
     public static function table(Table $table): Table
     {
-        return AnnouncementsTable::configure($table);
+        return $table
+            ->columns([
+                Tables\Columns\TextColumn::make('title')
+                    ->label('Judul')
+                    ->searchable()
+                    ->sortable(),
+                    
+                Tables\Columns\TextColumn::make('slug')
+                    ->label('Slug')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                    
+                Tables\Columns\TextColumn::make('user.name')
+                    ->label('Dibuat Oleh')
+                    ->sortable()
+                    ->searchable()
+                    ->badge()
+                    ->color('info'),
+                    
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Tanggal Dibuat')
+                    ->dateTime('d M Y H:i')
+                    ->sortable(),
+            ])
+            ->filters([
+                //
+            ])
+            ->recordActions([
+                \Filament\Actions\EditAction::make(),
+                \Filament\Actions\DeleteAction::make(),
+            ])
+            ->toolbarActions([
+                \Filament\Actions\BulkActionGroup::make([
+                    \Filament\Actions\DeleteBulkAction::make(),
+                ]),
+            ])
+            ->defaultSort('created_at', 'desc');
     }
 
     public static function getRelations(): array
